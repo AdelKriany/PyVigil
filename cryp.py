@@ -35,130 +35,73 @@ def load_key():
     return open("secret.key", "rb").read()
 
 
-#3. encrypt a file using AES-GCM (streaming mode)
+
+def update_encryption_status(file_path):
+    db_json = "hash_db.json"
+
+    if not os.path.exists(db_json):
+        return
+
+    with open(db_json, "r") as f:
+        data = json.load(f)
+
+    if file_path in data["files"]:
+        data["files"][file_path]["is_encrypted"] = True
+
+    with open(db_json, "w") as f:
+        json.dump(data, f, indent=4)
+
+
+
 def encrypt_file(file_path):
-    key = load_key()
-    nonce = os.urandom(12)
-
-    cipher = Cipher(
-        algorithms.AES(key),
-        modes.GCM(nonce),
-    )
-    encryptor = cipher.encryptor()
-
+    key = load_key() # Assuming you have a function to load the key
     file_size = os.path.getsize(file_path)
-    output_path = file_path + ".tmp"
+    
+    # Define a threshold (e.g., 50MB) to decide between Fernet and GCM
+    # Adjust this based on your performance needs
+    FERNET_THRESHOLD = 50 * 1024 * 1024 
 
-    with open(file_path, "rb") as f_in, open(output_path, "wb") as f_out:
+    # --- MODE: FERNET ---
+    if file_size < FERNET_THRESHOLD:
+        with open(file_path, "rb") as f:
+            data = f.read()
         
-        # Write header (mode)
-        f_out.write(b"S")
+        fernet_key = base64.urlsafe_b64encode(key)
+        f = Fernet(fernet_key)
+        encrypted_data = f.encrypt(data)
+        
+        with open(file_path, "wb") as f_out:
+            f_out.write(b"F") # Header
+            f_out.write(encrypted_data)
+        print(f"{Colors.GREEN}[✔] File {file_path} encrypted using Fernet.{Colors.END}")
 
-        # Write nonce
-        f_out.write(nonce)
-
-        with tqdm(total=file_size, unit='B', unit_scale=True, desc="Encrypting") as pbar:
-            while True:
-                chunk = f_in.read(CHUNK_SIZE)
-                if not chunk:
-                    break
-
-                encrypted_chunk = encryptor.update(chunk)
-                f_out.write(encrypted_chunk)
-
-                pbar.update(len(chunk))
-
-            encryptor.finalize()
-
-        # Write authentication tag
-        f_out.write(encryptor.tag)
-
-    os.replace(output_path, file_path)
-
-    print(f"\n{Colors.GREEN}[✔] File {file_path} has been ENCRYPTED (AES-GCM streaming).{Colors.END}")
-
-
-
-# # 3. Encrypt a file
-# def encrypt_file(file_path):
-#     raw_key=open('secret.key', 'rb').read()
-#     aesgcm=AESGCM(raw_key)
-#     nonce=os.urandom(12)
-
-#     file_size=os.path.getsize(file_path)
-#     output_path=file_path+'.tmp'
-
-
-#     with open(file_path, 'rb') as f_in, open(output_path, 'wb') as f_out:
-#         f_out.write(nonce)  # Write nonce at the beginning
-#         with tqdm(total=file_size, unit='B', unit_scale=True, desc=f"Encrypting")as pbar:
-#             data=f_in.read()
-#             encrypted = aesgcm.encrypt(nonce, data, None)
-#             f_out.write(encrypted)
-#             pbar.update(file_size)
-#     os.replace(output_path, file_path)
-#     print(f"\n{Colors.GREEN}[✔] File {file_path} has been ENCRYPTED.{Colors.END}")
-
-    # key = load_key()
-    # if not key: return
-    # f = Fernet(key)
-  
-    # file_size = os.path.getsize(file_path)
-    
-    # # Fernet لا يدعم التشفير على أجزاء (Streaming) بشكل مباشر بسهولة، 
-    # # لذا سنستخدم tqdm لإظهار حالة القراءة والمعالجة
-    # with tqdm(total=file_size, unit='B', unit_scale=True, desc=f"Encrypting {os.path.basename(file_path)}") as pbar:
-    #     with open(file_path, "rb") as file:
-    #         file_data = file.read()
-    #         pbar.update(file_size) # تحديث الشريط بعد القراءة
-    
-    # encrypted_data = f.encrypt(file_data)
-    
-    # with open(file_path, "wb") as file:
-    #     file.write(encrypted_data)
-    # print(f"\n{Colors.GREEN}[✔] File {file_path} has been ENCRYPTED.{Colors.END}")
-
-
-
-
-
-
-
-"""# 4. Decrypt a file fix it later """
-# # 4. Decrypt a file
-# def decrypt_file(file_path):
-#    # secret_key_check=getpass.getpass(f"{Colors.YELLOW}Enter the secret key to decrypt the file: {Colors.END}").strip().encode('utf-8')
-#     key = open("secret.key", "rb").read()
-#     nonce = os.urandom(12)
-
-#     # key = secret_key_check
-   
-#     # f = Fernet(key)
-#     with open(file_path, "rb") as f_in, open(output_path, "wb") as f_out:
-#         f_out.write(nonce)
-#         with tqdm(total=file_size, unit='B', unit_scale=True, desc="Encrypting") as pbar:
-#             while True:
-#                 chunk = f_in.read(CHUNK_SIZE)
-#                 if not chunk:
-#                     break
-#                 encrypted_chunk = encryptor.update(chunk)
-#                 f_out.write(encrypted_chunk)
-#                 pbar.update(len(chunk))
-
-#     decryptor.finalize()
-
-
-
-#     with open(file_path, "rb") as file:
-#         encrypted_data = file.read()
-    
-#     try:
-#         decrypted_data = f.decrypt(encrypted_data)
-#         with open(file_path, "wb") as file:
-#             file.write(decrypted_data)
-#         print(f"[!] File {file_path} has been DECRYPTED.")
-#     except Exception:
-#         print("[X] Invalid Key or file is not encrypted.")
+    # --- MODE: AES-GCM ---
+    else:
+        nonce = os.urandom(12)
+        cipher = Cipher(algorithms.AES(key), modes.GCM(nonce))
+        encryptor = cipher.encryptor()
+        
+        output_path = file_path + ".tmp_enc"
+        
+        with open(file_path, "rb") as f_in, open(output_path, "wb") as f_out:
+            # Write header 'S' and the 12-byte nonce
+            f_out.write(b"S")
+            f_out.write(nonce)
+            
+            with tqdm(total=file_size, unit='B', unit_scale=True, desc="Encrypting") as pbar:
+                while True:
+                    chunk = f_in.read(CHUNK_SIZE)
+                    if not chunk: break
+                    f_out.write(encryptor.update(chunk))
+                    pbar.update(len(chunk))
+                
+                encryptor.finalize()
+                f_out.write(encryptor.tag) # Append 16-byte tag
+        
+        os.replace(output_path, file_path)
+        print(f"\n{Colors.CYAN}[✔] File {file_path} encrypted using AES-GCM.{Colors.END}")
+        update_encryption_status(target_path)
+        return True
 
 
 

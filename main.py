@@ -43,11 +43,15 @@ def Hashing_engine(file_path,algorithm):
     # hash_algorithm = hashlib.new(algorithm)
     key=load_key()
     hash_algorithm = hmac.new(key, digestmod=algorithm)
+    
     try:
         with open(file_path, 'rb') as f:
             file_size = os.path.getsize(file_path)
             with tqdm(total=file_size, unit='B', unit_scale=True, desc=f"Hashing {os.path.basename(file_path)[:20]}") as pbar:
-                 for bite_block in iter(lambda: f.read(4096), b""):   
+                 for bite_block in iter(lambda: f.read(4096), b""):  
+                    #  if stored["files"][file_path].get("is_encrypted", False):
+                    #     print(f"{Colors.YELLOW}[!] تحذير: الملف {file_path} مشفر حالياً. لا يمكن التحقق من نزاهته إلا بعد فك التشفير.{Colors.END}")
+                    #     continue 
                      # print(f"I am hashing this data: {bite_block.strip()}")#if had any problem remove the strip
                      hash_algorithm.update(bite_block)
                      pbar.update(len(bite_block))
@@ -79,15 +83,17 @@ def main_hash():
 
     # encrypt after hash
     crypt_choice = input(f"{Colors.YELLOW}Do you want to encrypt the files after hashing? (yay/nay):{Colors.END} ").strip().lower()################
-
+    is_encrypted=False
     if crypt_choice=="yay":
-        encrypt_file(target_path)
+        is_encrypted = encrypt_file(target_path)
     
 
 # setting session
     print(f"\n{Colors.MAGENTA}--- SETTINGS ---{Colors.END}")
+    
 
     re_init = input("re-initialize? (yay/nay): ").strip().lower()
+    
     
     if re_init == "yay":#create metadata for storing it in the hash_db.json
         db_data={
@@ -102,9 +108,12 @@ def main_hash():
             for root, dirs, files in os.walk(target_path):
                 for file in files:
                     full_path = os.path.join(root, file)
-                    db_data["files"][full_path]= Hashing_engine(full_path, hash_ask)
+                    "is_encrypted" == is_encrypted
+
+                    db_data["files"][full_path]={ "hash": Hashing_engine(full_path, hash_ask), "is_encrypted": is_encrypted }
         else:
-            db_data["files"][target_path]= Hashing_engine(target_path, hash_ask)
+            is_encrypted = (crypt_choice == "yay")
+            db_data["files"][target_path]={ "hash": Hashing_engine(target_path, hash_ask), "is_encrypted": is_encrypted }
         ######later
 
         #write a the hash details into the file db_jsofile
@@ -112,7 +121,7 @@ def main_hash():
             json.dump(db_data, f, indent=4)
         print(f"{Colors.GREEN}[✔]Database updated!{Colors.END}")
    
-    else:#re_init == "nay"
+    elif re_init=="nay":#re_init == "nay"
         if not os.path.exists(db_json):
             print(f"{Colors.RED}[!] No DB found{Colors.END}")
             exit(-1)
@@ -125,12 +134,24 @@ def main_hash():
         print(f"\n{Colors.CYAN}[*] Checking integrity using {alg_used.upper()}...{Colors.END}\n")
         
         #see if the hash was changed or not 
-        for f_path, old_h in stored["files"].items(): 
+        for f_path, file_data in stored["files"].items(): 
+            
+            old_h = file_data.get("hash")
+            if stored["files"][f_path].get("is_encrypted", False):
+              print(f"{Colors.YELLOW}[!] Warning: The file {f_path} is currently encrypted. Its integrity can only be verified after decryption.{Colors.END}")
+              continue 
+            # check if the file deleted or changed from the path
+            if not os.path.exists(f_path):
+                print(f"{Colors.RED}[DELETED]: {Colors.END}{f_path}")
+                continue
             curr_h = Hashing_engine(f_path,algorithm=alg_used)
             if curr_h != old_h:
                 print(f"{Colors.RED}[MODIFIED]: {Colors.END}{f_path}")
             else:
                 print(f"{Colors.GREEN}[SAVE]: {Colors.END}{f_path}")
+    else:
+        print(f"{Colors.RED}[!] Invalid option. Exiting.{Colors.END}")
+        exit(-1)
 
 
 #main functioin for choising 
@@ -183,5 +204,5 @@ if __name__ == "__main__":
         print(f"\n{Colors.RED}[X] Interrupted by user. Exiting...{Colors.END}")
         sys.exit(0)
     except EOFError :
-         print(f"\n{Colors.GREEN}[✔] Exiting program (Ctrl+D). Goodbye!{Colors.END}")
-         sys.exit(0)
+        print(f"\n{Colors.GREEN}[✔] Exiting program (Ctrl+D). Goodbye!{Colors.END}")
+        sys.exit(0)
