@@ -37,7 +37,7 @@ def load_key():
 
 #3. encrypt a file using AES-GCM (streaming mode)
 def encrypt_file(file_path):
-    key = open("secret.key", "rb").read()
+    key = load_key()
     nonce = os.urandom(12)
 
     cipher = Cipher(
@@ -48,27 +48,34 @@ def encrypt_file(file_path):
 
     file_size = os.path.getsize(file_path)
     output_path = file_path + ".tmp"
-    # Fernet لا يدعم التشفير على أجزاء (Streaming) بشكل مباشر بسهولة，
-    # لذا سنستخدم tqdm لإظهار حالة القراءة والمعالجة
+
     with open(file_path, "rb") as f_in, open(output_path, "wb") as f_out:
+        
+        # Write header (mode)
+        f_out.write(b"S")
+
+        # Write nonce
         f_out.write(nonce)
+
         with tqdm(total=file_size, unit='B', unit_scale=True, desc="Encrypting") as pbar:
             while True:
                 chunk = f_in.read(CHUNK_SIZE)
                 if not chunk:
                     break
+
                 encrypted_chunk = encryptor.update(chunk)
                 f_out.write(encrypted_chunk)
+
                 pbar.update(len(chunk))
 
             encryptor.finalize()
 
-        # Write authentication tag at the end
+        # Write authentication tag
         f_out.write(encryptor.tag)
 
     os.replace(output_path, file_path)
-    print(f"\n{Colors.GREEN}[✔] File {file_path} has been ENCRYPTED.{Colors.END}(streaming mode).")
 
+    print(f"\n{Colors.GREEN}[✔] File {file_path} has been ENCRYPTED (AES-GCM streaming).{Colors.END}")
 
 
 
@@ -152,3 +159,71 @@ def encrypt_file(file_path):
 #         print(f"[!] File {file_path} has been DECRYPTED.")
 #     except Exception:
 #         print("[X] Invalid Key or file is not encrypted.")
+
+
+
+def decrypt_file(file_path):
+    key = load_key()
+    file_size = os.path.getsize(file_path)
+    
+    if file_size < 1:
+        print(f"{Colors.RED}[X] File is empty.{Colors.END}")
+        return
+
+    with open(file_path, "rb") as f_in:
+        # 1. Read the first byte to determine the encryption mode
+        mode = f_in.read(1)
+        
+        # --- MODE: FERNET (Small Files) ---
+        if mode == b"F":
+            # Fernet needs a base64 encoded version of your 32-byte key
+            fernet_key = base64.urlsafe_b64encode(key)
+            f = Fernet(fernet_key)
+            encrypted_data = f_in.read()
+            
+            try:
+                decrypted_data = f.decrypt(encrypted_data)
+                with open(file_path, "wb") as f_out:
+                    f_out.write(decrypted_data)
+                print(f"{Colors.GREEN}[✔] File {file_path} decrypted using Fernet.{Colors.END}")
+            except Exception:
+                print(f"{Colors.RED}[X] Fernet decryption failed. Invalid key or corrupted data.{Colors.END}")
+
+        # --- MODE: AES-GCM (Large/Streaming Files) ---
+        elif mode == b"S":
+            # Read the 12-byte nonce immediately after the mode byte
+            nonce = f_in.read(12)
+            
+            # The 16-byte tag is at the very end of the file
+            f_in.seek(-16, os.SEEK_END)
+            tag = f_in.read(16)
+            
+            # Actual encrypted data is between the nonce and the tag
+            f_in.seek(1 + 12) # Skip mode (1) and nonce (12)
+            data_size = file_size - 1 - 12 - 16
+            
+            cipher = Cipher(algorithms.AES(key), modes.GCM(nonce, tag))
+            decryptor = cipher.decryptor()
+            
+            output_path = file_path + ".tmp_dec"
+            try:
+                with open(output_path, "wb") as f_out:
+                    with tqdm(total=data_size, unit='B', unit_scale=True, desc="Decrypting") as pbar:
+                        remaining = data_size
+                        while remaining > 0:
+                            chunk = f_in.read(min(CHUNK_SIZE, remaining))
+                            if not chunk: break
+                            f_out.write(decryptor.update(chunk))
+                            remaining -= len(chunk)
+                            pbar.update(len(chunk))
+                        
+                        decryptor.finalize()
+                
+                os.replace(output_path, file_path)
+                print(f"\n{Colors.CYAN}[✔] File {file_path} decrypted using AES-GCM.{Colors.END}")
+            except Exception as e:
+                if os.path.exists(output_path): os.remove(output_path)
+                print(f"\n{Colors.RED}[X] GCM Decryption failed: {e}{Colors.END}")
+        
+        else:
+            print(f"{Colors.YELLOW}[!] File does not have a valid encryption header (F/S).{Colors.END}")

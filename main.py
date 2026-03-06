@@ -177,4 +177,11 @@ def main_menu():
 
 #main 
 if __name__ == "__main__":
-    main_menu()
+    try:
+        main_menu()
+    except KeyboardInterrupt:
+        print(f"\n{Colors.RED}[X] Interrupted by user. Exiting...{Colors.END}")
+        sys.exit(0)
+    except EOFError :
+         print(f"\n{Colors.GREEN}[✔] Exiting program (Ctrl+D). Goodbye!{Colors.END}")
+         sys.exit(0)
