@@ -4,7 +4,7 @@ import os
 import json
 import sys
 from tqdm import tqdm
-from cryptography.fernet import Fernet# next version remove fernet
+from cryptography.fernet import Fernet
 from cryp import generate_key, load_key, encrypt_file, decrypt_file
 import hmac
 import getpass
@@ -16,8 +16,6 @@ def Hashing_engine(file_path,algorithm):
     Computes the hash of a file using the specified algorithm.
     Supported: 'md5', 'sha1', 'sha256', 'sha512', etc.
     """
-    #sha256_hash = hashlib.sha256()
-    # hash_algorithm = hashlib.new(algorithm)
     key=load_key()
     hash_algorithm = hmac.new(key, digestmod=algorithm)
     
@@ -26,14 +24,9 @@ def Hashing_engine(file_path,algorithm):
             file_size = os.path.getsize(file_path)
             with tqdm(total=file_size, unit='B', unit_scale=True, desc=f"Hashing {os.path.basename(file_path)[:20]}") as pbar:
                  for bite_block in iter(lambda: f.read(4096), b""):  
-                    #  if stored["files"][file_path].get("is_encrypted", False):
-                    #     print(f"{Colors.YELLOW}[!] تحذير: الملف {file_path} مشفر حالياً. لا يمكن التحقق من نزاهته إلا بعد فك التشفير.{Colors.END}")
-                    #     continue 
-                     # print(f"I am hashing this data: {bite_block.strip()}")#if had any problem remove the strip
                      hash_algorithm.update(bite_block)
                      pbar.update(len(bite_block))
         # incorporate the secret key into the final hash
-       # hash_algorithm.update(secret_salt.encode())
         return hash_algorithm.hexdigest()
     except Exception as e:
         print(f"Error hashing file {file_path}: {e}")
@@ -60,9 +53,10 @@ def main_hash():
 
     # encrypt after hash
     crypt_choice = input(f"{Colors.YELLOW}Do you want to encrypt the files after hashing? (yay/nay):{Colors.END} ").strip().lower()################
-    is_encrypted=False
+    is_encrypted=False#--------------------
     if crypt_choice=="yay":
         is_encrypted = encrypt_file(target_path)
+        print(f"{Colors.GREEN}[✔] File encrypted. Now generating integrity hash for the encrypted file.{Colors.END}")
     
 
 # setting session
@@ -86,14 +80,15 @@ def main_hash():
                 for file in files:
                     full_path = os.path.join(root, file)
                     "is_encrypted" == is_encrypted
-
-                    db_data["files"][full_path]={ "hash": Hashing_engine(full_path, hash_ask), "is_encrypted": is_encrypted }
+                    file_hash = Hashing_engine(full_path, hash_ask)
+                    db_data["files"][full_path]={ "hash": file_hash, "is_encrypted": (crypt_choice == "yay") }
         else:
+            file_hash = Hashing_engine(target_path, hash_ask)
             is_encrypted = (crypt_choice == "yay")
-            db_data["files"][target_path]={ "hash": Hashing_engine(target_path, hash_ask), "is_encrypted": is_encrypted }
+            db_data["files"][target_path]={ "hash": file_hash, "is_encrypted": is_encrypted }
         ######later
 
-        #write a the hash details into the file db_jsofile
+        # Write the data into the database JSON file
         with open(db_json, 'w') as f:
             json.dump(db_data, f, indent=4)
         print(f"{Colors.GREEN}[✔]Database updated!{Colors.END}")
@@ -114,9 +109,10 @@ def main_hash():
         for f_path, file_data in stored["files"].items(): 
             
             old_h = file_data.get("hash")
-            if stored["files"][f_path].get("is_encrypted", False):
-              print(f"{Colors.YELLOW}[!] Warning: The file {f_path} is currently encrypted. Its integrity can only be verified after decryption.{Colors.END}")
-              continue 
+            curr_h = Hashing_engine(f_path, algorithm=alg_used)
+            # if stored["files"][f_path].get("is_encrypted", False):
+            #   print(f"{Colors.YELLOW}[!] Warning: The file {f_path} is currently encrypted. Its integrity can only be verified after decryption.{Colors.END}")
+            #   continue 
             # check if the file deleted or changed from the path
             if not os.path.exists(f_path):
                 print(f"{Colors.RED}[DELETED]: {Colors.END}{f_path}")
@@ -125,7 +121,8 @@ def main_hash():
             if curr_h != old_h:
                 print(f"{Colors.RED}[MODIFIED]: {Colors.END}{f_path}")
             else:
-                print(f"{Colors.GREEN}[SAVE]: {Colors.END}{f_path}")
+                status = "ENCRYPTED" if file_data.get("is_encrypted", False) else "(plaintext)"
+                print(f"{Colors.GREEN}[SAVE] {status}: {Colors.END}{f_path}")
     else:
         print(f"{Colors.RED}[!] Invalid option. Exiting.{Colors.END}")
         exit(-1)
@@ -181,5 +178,5 @@ if __name__ == "__main__":
         print(f"\n{Colors.RED}[X] Interrupted by user. Exiting...{Colors.END}")
         sys.exit(0)
     except EOFError :
-        print(f"\n{Colors.GREEN}[✔] Exiting program (Ctrl+D). Goodbye!{Colors.END}")
+        print(f"\n{Colors.GREEN}[✔] Exiting program. Goodbye!{Colors.END}")
         sys.exit(0)
