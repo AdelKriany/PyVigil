@@ -6,22 +6,10 @@ from tqdm import tqdm
 import getpass
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 import base64
+from banner import print_banner, Colors
 
 # This file contains the core cryptographic functions for key generation, encryption, and decryption.
 CHUNK_SIZE = 1024 * 1024  # 1MB per chunk
-
-
-# i will put this on the another file later 
-class Colors:
-    BLUE = '\033[94m'
-    GREEN = '\033[92m'
-    YELLOW = '\033[93m'
-    RED = '\033[91m'
-    MAGENTA = '\033[95m'
-    CYAN = '\033[96m'
-    BOLD = '\033[1m'
-    END = '\033[0m'
-
 
 # 1. Generate and save a key (Do this only once!)
 def generate_key():
@@ -100,7 +88,7 @@ def encrypt_file(file_path):
         
         os.replace(output_path, file_path)
         print(f"\n{Colors.CYAN}[✔] File {file_path} encrypted using AES-GCM.{Colors.END}")
-        update_encryption_status(target_path)
+        update_encryption_status(file_path)
         return True
 
 
