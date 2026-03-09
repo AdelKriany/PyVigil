@@ -5,7 +5,7 @@ import json
 import sys
 from tqdm import tqdm
 from cryptography.fernet import Fernet
-from cryp import generate_key, load_key, encrypt_file, decrypt_file
+from cryp import generate_key, load_key, encrypt_file, decrypt_file, decrypt_path
 import hmac
 import getpass
 from banner import print_banner, Colors
@@ -148,7 +148,7 @@ def main_hash():
         for f_path, file_data in stored["files"].items(): 
             
             old_h = file_data.get("hash")
-            curr_h = Hashing_engine(f_path, algorithm=alg_used)
+            # curr_h = Hashing_engine(f_path, algorithm=alg_used)
 
             if os.path.isdir(target_path):
                 # stored_data=None for now but later we will load it from the db_json
@@ -194,7 +194,7 @@ def main_menu():
     elif choice == "3": 
         file_to_decrypt = input(f"{Colors.YELLOW}Enter the path of the file to decrypt: {Colors.END}").strip()
         if os.path.exists(file_to_decrypt):
-            decrypt_file(file_to_decrypt)
+            decrypt_path(file_to_decrypt)
 
         else:
             print(f"{Colors.RED}[!] File does not exist{Colors.END}")

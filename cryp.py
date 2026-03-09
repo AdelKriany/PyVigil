@@ -91,12 +91,22 @@ def encrypt_file(file_path):
         update_encryption_status(file_path)
         return True
 
+def decrypt_path(path):
+    if os.path.isfile(path):
+        decrypt_file(path)
 
+    elif os.path.isdir(path):
+        for root, dirs, files in os.walk(path):
+            for file in files:
+                full_path = os.path.join(root, file)
+                decrypt_file(full_path)
+
+    else:
+        print(f"{Colors.RED}[X] Path does not exist: {path}{Colors.END}")
 
 def decrypt_file(file_path):
     key = load_key()
     file_size = os.path.getsize(file_path)
-    
     if file_size < 1:
         print(f"{Colors.RED}[X] File is empty.{Colors.END}")
         return
