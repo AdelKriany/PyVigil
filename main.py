@@ -32,7 +32,32 @@ def Hashing_engine(file_path,algorithm):
         print(f"Error hashing file {file_path}: {e}")
         return None
 
-# not clear yet
+# منطق مقترح للمقارنة الشاملة
+def verify_directory(directory_path, stored_data, hash_ask):
+     # تحقق من الملفات الموجودة في قاعدة البيانات
+    for stored_path, file_data in stored_data["files"].items():
+
+        if not os.path.exists(stored_path):
+            print(f"{Colors.RED}[DELETED]: {Colors.END}{stored_path}")
+            continue
+
+        current_hash = Hashing_engine(stored_path, hash_ask)
+
+        if current_hash != file_data["hash"]:
+            print(f"{Colors.RED}[MODIFIED]: {Colors.END}{stored_path}")
+        else:
+            print(f"{Colors.GREEN}[OK]: {Colors.END}{stored_path}")
+
+
+    # البحث عن ملفات جديدة
+    for root, dirs, files in os.walk(directory_path):
+        for file in files:
+            full_path = os.path.join(root, file)
+
+            if full_path not in stored_data["files"]:
+                print(f"{Colors.YELLOW}[NEW FILE]: {Colors.END}{full_path}")
+
+
 def main_hash():
     """main hash function that suppose to choose the type of hash 
     and re-initialize the old one and the check if the hash was changed 
@@ -55,9 +80,21 @@ def main_hash():
     crypt_choice = input(f"{Colors.YELLOW}Do you want to encrypt the files after hashing? (yay/nay):{Colors.END} ").strip().lower()################
     is_encrypted=False#--------------------
     if crypt_choice=="yay":
-        is_encrypted = encrypt_file(target_path)
-        print(f"{Colors.GREEN}[✔] File encrypted. Now generating integrity hash for the encrypted file.{Colors.END}")
-    
+        # is_encrypted = encrypt_file(target_path)
+        # print(f"{Colors.GREEN}[✔] File encrypted. Now generating integrity hash for the encrypted file.{Colors.END}")
+        if os.path.isfile(target_path):
+            encrypt_file(target_path)
+            is_encrypted = True
+
+        elif os.path.isdir(target_path):
+
+            for root, dirs, files in os.walk(target_path):
+                for file in files:
+                    full_path = os.path.join(root, file)
+                    encrypt_file(full_path)
+
+            is_encrypted = True
+        print(f"{Colors.GREEN}[✔] Directory encrypted. Now generating integrity hash.{Colors.END}")
 
 # setting session
     print(f"\n{Colors.MAGENTA}--- SETTINGS ---{Colors.END}")
@@ -94,6 +131,8 @@ def main_hash():
         print(f"{Colors.GREEN}[✔]Database updated!{Colors.END}")
    
     elif re_init=="nay":#re_init == "nay"
+        
+
         if not os.path.exists(db_json):
             print(f"{Colors.RED}[!] No DB found{Colors.END}")
             exit(-1)
@@ -110,9 +149,11 @@ def main_hash():
             
             old_h = file_data.get("hash")
             curr_h = Hashing_engine(f_path, algorithm=alg_used)
-            # if stored["files"][f_path].get("is_encrypted", False):
-            #   print(f"{Colors.YELLOW}[!] Warning: The file {f_path} is currently encrypted. Its integrity can only be verified after decryption.{Colors.END}")
-            #   continue 
+
+            if os.path.isdir(target_path):
+                # stored_data=None for now but later we will load it from the db_json
+                verify_directory(target_path, stored, alg_used) 
+                return
             # check if the file deleted or changed from the path
             if not os.path.exists(f_path):
                 print(f"{Colors.RED}[DELETED]: {Colors.END}{f_path}")
