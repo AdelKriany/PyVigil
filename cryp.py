@@ -6,6 +6,7 @@ from tqdm import tqdm
 import getpass
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 import base64
+import getpass  
 from banner import print_banner, Colors
 
 # This file contains the core cryptographic functions for key generation, encryption, and decryption.
@@ -20,7 +21,9 @@ def generate_key():
 
 # 2. Load the existing key
 def load_key():
-    return open("secret.key", "rb").read()
+    """Load encryption key by prompting user for password."""
+    from key import get_key_from_password
+    return get_key_from_password()
 
 
 
