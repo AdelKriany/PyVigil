@@ -44,7 +44,7 @@ def save_salt(salt: bytes):
     with open(salt_path, "wb") as f:
         f.write(salt)
     
-    os.chmod(salt_path, 0o644)  # Salt doesn't need to be secret
+    os.chmod(salt_path, 0o644)  
     print(f"{Colors.GREEN}[+] Salt saved at {salt_path}.{Colors.END}")
 
 def load_salt() -> bytes:
