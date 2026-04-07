@@ -8,7 +8,7 @@ Lightweight CLI tool to create and verify HMAC-based file integrity databases, w
 Use the package manager [pip](https://pip.pypa.io/en/stable/) to install it.
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/AdelKriany/Py_File_Integrity_Checker.git
 cd py_file_integrity_checker
 python -m venv .venv
 source .venv/bin/activate   # Linux/macOS
