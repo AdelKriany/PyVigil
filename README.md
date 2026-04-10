@@ -71,17 +71,28 @@ Examples:
   </ol>
   <p>Result: reports files as <strong>deleted / modified / new / ok</strong>.</p>
 
-  <h2>Security &amp; Important Warnings</h2>
-  <div class="warn">
-    <ul>
-      <li>The encryption key is derived from your password using <strong>Argon2id</strong>. If you forget the password, encrypted files cannot be recovered.</li>
-      <li>Use a strong, unique password (≥12 characters).</li>
-      <li>Keep the salt file (<code>~/.config/file_integrity_checker/salt</code>) and <code>hash_db.json</code> backed up and secure.</li>
-      <li>HMAC uses the derived key; if the password or salt is exposed, integrity and confidentiality are compromised.</li>
-      <li>Test encryption/decryption on sample files before running on bulk or important data.</li>
-    </ul>
-  </div>
+   <h2>Security &amp; Important Warnings</h2>
+  ## 🛡️ Security Model & Architecture
 
+This tool is designed with a "Security-First" mindset, ensuring both confidentiality and data integrity through modern cryptographic primitives.
+
+### 🔐 Cryptographic Specifications
+| Feature | Implementation |
+| :--- | :--- |
+| **Key Derivation (KDF)** | **Argon2id** (Type: 2, Version: 19) |
+| **Small File Encryption** | **Fernet** (AES-128-CBC + HMAC-SHA256) |
+| **Large File Encryption** | **AES-256-GCM** (Authenticated Streaming) |
+| **Integrity Hashing** | User-defined (SHA-256, SHA-512, etc.) + HMAC |
+
+### ⚠️ Important Warnings
+> [!IMPORTANT]
+> **Zero-Knowledge Design**: The application never stores your plaintext password. The encryption key is derived on-the-fly.
+
+* **Password Recovery**: If you forget your password, the encrypted files **cannot be recovered**. There is no "backdoor."
+* **Salt Portability**: The encryption relies on the salt file located at `~/.config/file_integrity_checker/salt`. If you move your encrypted files to another machine, you **must** also move the salt file.
+* **Key Strength**: Always use a strong, unique password (minimum 12+ characters) to maximize the effectiveness of Argon2id.
+* **Data Integrity**: HMAC is used to verify that your files haven't been tampered with. If the password or salt is compromised, the integrity guarantee is void.
+  
 
 <h2>Troubleshooting</h2>
 <ol>
